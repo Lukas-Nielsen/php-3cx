@@ -2,7 +2,7 @@
   "name": "ln/threecx",
   "require": {
     "guzzlehttp/guzzle": "^7.9",
-    "spomky-labs/otphp": "^11.3"
+    "spomky-labs/otphp": "^10.0"
   },
   "license": "MIT",
   "autoload": {
