@@ -12,13 +12,20 @@ class Client
 	protected gCLient $rest;
 	protected bool $tokenAuth = false;
 
-	public function __construct(Config $config)
+	public function __construct()
+	{
+	}
+
+	public function setConfig(Config $config)
 	{
 		$this->config = $config;
 		$this->rest = new gClient(
 			[
 				"base_uri" => "https://{$this->config->fqdn}:{$this->config->port}/xapi/v1",
-				"debug" => $this->config->debug
+				"debug" => $this->config->debug,
+				"headers" => [
+					"User-Agent" => "php-threecx"
+				]
 			]
 		);
 
@@ -101,6 +108,9 @@ class Client
 	public function get(string $uri, array $query = []): ResponseInterface
 	{
 		return $this->rest->get($uri, [
+			"headers" => [
+				"Authorization" => "{$this->config->token->tokenType} {$this->config->token->accessToken}"
+			],
 			"query" => $query,
 		]);
 	}
@@ -108,6 +118,9 @@ class Client
 	public function delete(string $uri, array $query = []): ResponseInterface
 	{
 		return $this->rest->delete($uri, [
+			"headers" => [
+				"Authorization" => "{$this->config->token->tokenType} {$this->config->token->accessToken}"
+			],
 			"query" => $query,
 		]);
 	}
@@ -115,6 +128,9 @@ class Client
 	public function post(string $uri, array $payload, array $query = []): ResponseInterface
 	{
 		return $this->rest->post($uri, [
+			"headers" => [
+				"Authorization" => "{$this->config->token->tokenType} {$this->config->token->accessToken}"
+			],
 			"query" => $query,
 			"json" => $payload,
 		]);
@@ -123,6 +139,9 @@ class Client
 	public function put(string $uri, array $payload, array $query = []): ResponseInterface
 	{
 		return $this->rest->put($uri, [
+			"headers" => [
+				"Authorization" => "{$this->config->token->tokenType} {$this->config->token->accessToken}"
+			],
 			"query" => $query,
 			"json" => $payload,
 		]);
@@ -131,6 +150,9 @@ class Client
 	public function patch(string $uri, array $payload, array $query = []): ResponseInterface
 	{
 		return $this->rest->patch($uri, [
+			"headers" => [
+				"Authorization" => "{$this->config->token->tokenType} {$this->config->token->accessToken}"
+			],
 			"query" => $query,
 			"json" => $payload,
 		]);
