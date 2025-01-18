@@ -1,0 +1,19 @@
+{
+  "name": "ln/threecx",
+  "require": {
+    "guzzlehttp/guzzle": "^7.9",
+    "spomky-labs/otphp": "^11.3"
+  },
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "ln\\threecx\\": "src/"
+    }
+  },
+  "authors": [
+    {
+      "name": "Lukas Nielsen",
+      "email": "moin@lukasnielsen.de"
+    }
+  ]
+}
