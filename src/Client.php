@@ -9,16 +9,30 @@ use Psr\Http\Message\ResponseInterface;
 class Client
 {
 	protected Config $config;
+	protected Token $token;
 	protected gCLient $rest;
 	protected bool $tokenAuth = false;
 
 	public function __construct()
 	{
+		$this->config = new Config("", "", "");
+		$this->token = new Token("", 0, "", "");
 	}
 
 	public function setConfig(Config $config)
 	{
 		$this->config = $config;
+		$this->setup();
+	}
+
+	public function setToken(Token $token)
+	{
+		$this->token = $token;
+		$this->setup();
+	}
+
+	private function setup()
+	{
 		$this->rest = new gClient(
 			[
 				"base_uri" => "https://{$this->config->fqdn}:{$this->config->port}/xapi/v1",
@@ -30,10 +44,10 @@ class Client
 		);
 
 		if (
-			strlen($this->config->token->tokenType) == 0 ||
-			strlen($this->config->token->accessToken) == 0 ||
-			strlen($this->config->token->refreshToken) == 0 ||
-			$this->config->token->expires == 0
+			strlen($this->token->tokenType) == 0 ||
+			strlen($this->token->accessToken) == 0 ||
+			strlen($this->token->refreshToken) == 0 ||
+			$this->token->expires == 0
 		) {
 
 			if (strlen($this->config->user) == 0) {
@@ -67,20 +81,20 @@ class Client
 			}
 			$data = json_decode($authReponse->getBody()->__tostring(), true)["Token"];
 
-			$token = new Token();
-			$token->accessToken = $data["access_token"];
-			$token->refreshToken = $data["refresh_token"];
-			$token->tokenType = $data["token_type"];
-			$token->expires = time() + $data["expires_in"] * 60 * 1000;
-			$this->config->token = $token;
+			$this->token = new Token(
+				$data["token_type"],
+				time() + $data["expires_in"] * 60 * 1000,
+				$data["access_token"],
+				$data["refresh_token"]
+			);
 		}
 
-		if ($this->config->token->expires < time()) {
+		if ($this->token->expires < time()) {
 			$authReponse = $this->rest->post("https://{$this->config->fqdn}:{$this->config->port}/connect/token", [
 				"form_params" => [
 					"client_id" => "php-3cx",
 					"grant_type" => "refresh_token",
-					"refresh_token" => $this->config->token->refreshToken
+					"refresh_token" => $this->token->refreshToken
 				]
 			]);
 
@@ -91,25 +105,25 @@ class Client
 
 			$data = json_decode($authReponse->getBody()->__tostring(), true);
 
-			$token = new Token();
-			$token->accessToken = $data["access_token"];
-			$token->refreshToken = $data["refresh_token"];
-			$token->tokenType = $data["token_type"];
-			$token->expires = time() + $data["expires_in"] * 60 * 1000;
-			$this->config->token = $token;
+			$this->token = new Token(
+				$data["token_type"],
+				time() + $data["expires_in"] * 60 * 1000,
+				$data["access_token"],
+				$data["refresh_token"]
+			);
 		}
 	}
 
 	public function getToken(): Token
 	{
-		return $this->config->token;
+		return $this->token;
 	}
 
 	public function get(string $uri, array $query = []): ResponseInterface
 	{
 		return $this->rest->get($uri, [
 			"headers" => [
-				"Authorization" => "{$this->config->token->tokenType} {$this->config->token->accessToken}"
+				"Authorization" => "{$this->token->tokenType} {$this->token->accessToken}"
 			],
 			"query" => $query,
 		]);
@@ -119,7 +133,7 @@ class Client
 	{
 		return $this->rest->delete($uri, [
 			"headers" => [
-				"Authorization" => "{$this->config->token->tokenType} {$this->config->token->accessToken}"
+				"Authorization" => "{$this->token->tokenType} {$this->token->accessToken}"
 			],
 			"query" => $query,
 		]);
@@ -129,7 +143,7 @@ class Client
 	{
 		return $this->rest->post($uri, [
 			"headers" => [
-				"Authorization" => "{$this->config->token->tokenType} {$this->config->token->accessToken}"
+				"Authorization" => "{$this->token->tokenType} {$this->token->accessToken}"
 			],
 			"query" => $query,
 			"json" => $payload,
@@ -140,7 +154,7 @@ class Client
 	{
 		return $this->rest->put($uri, [
 			"headers" => [
-				"Authorization" => "{$this->config->token->tokenType} {$this->config->token->accessToken}"
+				"Authorization" => "{$this->token->tokenType} {$this->token->accessToken}"
 			],
 			"query" => $query,
 			"json" => $payload,
@@ -151,7 +165,7 @@ class Client
 	{
 		return $this->rest->patch($uri, [
 			"headers" => [
-				"Authorization" => "{$this->config->token->tokenType} {$this->config->token->accessToken}"
+				"Authorization" => "{$this->token->tokenType} {$this->token->accessToken}"
 			],
 			"query" => $query,
 			"json" => $payload,
