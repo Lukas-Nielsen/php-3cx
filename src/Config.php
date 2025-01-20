@@ -2,24 +2,17 @@
 
 namespace ln\threecx;
 
-class Config
+class User
 {
-	public function __construct(string $fqdn, string $user, string $password, int $port = 443, string $mfa = "", bool $debug = false)
+	public function __construct(string $username, string $password, string $mfa = "")
 	{
-		$this->fqdn = $fqdn;
-		$this->user = $user;
 		$this->password = $password;
-		$this->port = $port;
+		$this->username = $username;
 		$this->mfa = $mfa;
-		$this->debug = $debug;
 	}
-	public string $fqdn;
-	public int $port = 443;
-	public string $user;
+	public string $username;
 	public string $password;
 	public string $mfa = "";
-	public bool $debug = false;
-
 }
 
 class Token
@@ -35,4 +28,28 @@ class Token
 	public int $expires;
 	public string $accessToken;
 	public string $refreshToken;
+}
+
+class Host
+{
+	public function __construct(string $fqdn, int $port = 443, bool $debug = false)
+	{
+		$this->fqdn = $fqdn;
+		$this->port = $port;
+		$this->debug = $debug;
+	}
+	public string $fqdn;
+	public int $port = 443;
+	public bool $debug = false;
+}
+
+class Rest
+{
+	public function __construct(string $clientId, string $clientSecret)
+	{
+		$this->fqdn = $clientId;
+		$this->clientSecret = $clientSecret;
+	}
+	public string $clientId;
+	public string $clientSecret;
 }

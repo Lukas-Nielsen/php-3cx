@@ -18,21 +18,13 @@ composer require ln/threecx
 you need the FQDN of the instanz, username and password (with permissions for the action)
 
 ```php
-// conf
-$config = new Config();
-$config->fqdn = "company.my3cx.com";
-$config->port = 443; // can be omited
-$config->user = "admin";
-$config->password = "super-secret";
-$config->debug = false; // can be omited, debug via guzzlehttp/guzzle
-$config->token = new Token();
-// if you already have a token
-$config->token->accessToken = "access token";
-$config->token->tokenType = "Bearer";
-$config->token->refreshToken = "refresh token";
-$config->token->expires = 1721512;
+$client = new Client(new Host(string <fqdn>, int <port>, bool <debug, optional>));
 
-$client = new Client($config);
+$client->setUser(new User(string <username>, string <password>, string <mfa, optional>));
+// or
+$client->setRest(new Rest(string <clientId>, string <clientSecret>));
+// or
+$client->setToken(new Token(string <tokenType>, int <expires>, string <accessToken>, string <refreshToken>));
 ```
 
 ### functions

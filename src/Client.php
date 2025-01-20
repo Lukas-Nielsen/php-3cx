@@ -1,96 +1,87 @@
 <?php
 namespace ln\threecx;
 
-use GuzzleHttp\Client as gClient;
+use GuzzleHttp\Client as GuzzleClient;
 use OTPHP\TOTP;
 use Psr\Http\Message\ResponseInterface;
 
 
 class Client
 {
-	protected Config $config;
+	protected Host $host;
+	protected User $user;
 	protected Token $token;
-	protected gCLient $rest;
-	protected bool $tokenAuth = false;
+	protected Rest $rest;
+	protected GuzzleClient $client;
 
-	public function __construct()
+	public function __construct(Host $host)
 	{
-		$this->config = new Config("", "", "");
-		$this->token = new Token("", 0, "", "");
+		$this->host = $host;
 	}
 
-	public function setConfig(Config $config)
+	public function setUser(User $user)
 	{
-		$this->config = $config;
+		$this->user = $user;
 		$this->setup();
+
+		$mfa = strlen($this->user->mfa) > 0 ? TOTP::create($this->user->mfa)->now() : "";
+
+		$authReponse = $this->client->post("/webclient/api/Login/GetAccessToken", [
+			"json" => [
+				"Username" => $this->user->username,
+				"Password" => $this->user->password,
+				"SecurityCode" => $mfa,
+			]
+		]);
+
+		if ($authReponse->getStatusCode() !== 200) {
+			throw new Generic("error during login");
+
+		}
+		$data = json_decode($authReponse->getBody()->__tostring(), true)["Token"];
+
+		$this->token = new Token(
+			$data["token_type"],
+			time() + $data["expires_in"] * 60 * 1000,
+			$data["access_token"],
+			$data["refresh_token"]
+		);
+	}
+
+	public function setRest(Rest $rest)
+	{
+		$this->rest = $rest;
+		$this->setup();
+
+		$authReponse = $this->client->post("/connect/token", [
+			"form_params" => [
+				"client_id" => $this->rest->clientId,
+				"client_secret" => $this->rest->clientSecret,
+				"grant_type" => "client_credentials",
+			]
+		]);
+
+		if ($authReponse->getStatusCode() !== 200) {
+			throw new Generic("error during client_credentials login");
+		}
+
+		$data = json_decode($authReponse->getBody()->__tostring(), true);
+
+		$this->token = new Token(
+			$data["token_type"],
+			time() + $data["expires_in"] * 60 * 1000,
+			$data["access_token"],
+			$data["refresh_token"]
+		);
 	}
 
 	public function setToken(Token $token)
 	{
 		$this->token = $token;
 		$this->setup();
-	}
-
-	private function setup()
-	{
-		$this->rest = new gClient(
-			[
-				"base_uri" => "https://{$this->config->fqdn}:{$this->config->port}/xapi/v1",
-				"debug" => $this->config->debug,
-				"headers" => [
-					"User-Agent" => "php-threecx"
-				]
-			]
-		);
-
-		if (
-			strlen($this->token->tokenType) == 0 ||
-			strlen($this->token->accessToken) == 0 ||
-			strlen($this->token->refreshToken) == 0 ||
-			$this->token->expires == 0
-		) {
-
-			if (strlen($this->config->user) == 0) {
-				throw new MissingUser();
-
-			}
-
-			if (strlen($this->config->password) == 0) {
-				throw new MissingPassword();
-
-			}
-		} else {
-			$this->tokenAuth = true;
-		}
-
-
-		$mfa = strlen($this->config->mfa) > 0 ? TOTP::create($this->config->mfa)->now() : "";
-
-		if (!$this->tokenAuth) {
-			$authReponse = $this->rest->post("https://{$this->config->fqdn}:{$this->config->port}/webclient/api/Login/GetAccessToken", [
-				"json" => [
-					"Username" => $this->config->user,
-					"Password" => $this->config->password,
-					"SecurityCode" => $mfa,
-				]
-			]);
-
-			if ($authReponse->getStatusCode() !== 200) {
-				throw new Generic("error during login");
-
-			}
-			$data = json_decode($authReponse->getBody()->__tostring(), true)["Token"];
-
-			$this->token = new Token(
-				$data["token_type"],
-				time() + $data["expires_in"] * 60 * 1000,
-				$data["access_token"],
-				$data["refresh_token"]
-			);
-		}
 
 		if ($this->token->expires < time()) {
-			$authReponse = $this->rest->post("https://{$this->config->fqdn}:{$this->config->port}/connect/token", [
+			$authReponse = $this->client->post("/connect/token", [
 				"form_params" => [
 					"client_id" => "php-3cx",
 					"grant_type" => "refresh_token",
@@ -100,7 +91,6 @@ class Client
 
 			if ($authReponse->getStatusCode() !== 200) {
 				throw new Generic("error during token refresh");
-
 			}
 
 			$data = json_decode($authReponse->getBody()->__tostring(), true);
@@ -114,6 +104,19 @@ class Client
 		}
 	}
 
+	private function setup()
+	{
+		$this->client = new GuzzleClient(
+			[
+				"base_uri" => "https://{$this->host->fqdn}:{$this->host->port}",
+				"debug" => $this->host->debug,
+				"headers" => [
+					"User-Agent" => "php-threecx"
+				]
+			]
+		);
+	}
+
 	public function getToken(): Token
 	{
 		return $this->token;
@@ -121,7 +124,7 @@ class Client
 
 	public function get(string $uri, array $query = []): ResponseInterface
 	{
-		return $this->rest->get($uri, [
+		return $this->client->get($uri, [
 			"headers" => [
 				"Authorization" => "{$this->token->tokenType} {$this->token->accessToken}"
 			],
@@ -131,7 +134,7 @@ class Client
 
 	public function delete(string $uri, array $query = []): ResponseInterface
 	{
-		return $this->rest->delete($uri, [
+		return $this->client->delete($uri, [
 			"headers" => [
 				"Authorization" => "{$this->token->tokenType} {$this->token->accessToken}"
 			],
@@ -141,7 +144,7 @@ class Client
 
 	public function post(string $uri, array $payload, array $query = []): ResponseInterface
 	{
-		return $this->rest->post($uri, [
+		return $this->client->post($uri, [
 			"headers" => [
 				"Authorization" => "{$this->token->tokenType} {$this->token->accessToken}"
 			],
@@ -152,7 +155,7 @@ class Client
 
 	public function put(string $uri, array $payload, array $query = []): ResponseInterface
 	{
-		return $this->rest->put($uri, [
+		return $this->client->put($uri, [
 			"headers" => [
 				"Authorization" => "{$this->token->tokenType} {$this->token->accessToken}"
 			],
@@ -163,7 +166,7 @@ class Client
 
 	public function patch(string $uri, array $payload, array $query = []): ResponseInterface
 	{
-		return $this->rest->patch($uri, [
+		return $this->client->patch($uri, [
 			"headers" => [
 				"Authorization" => "{$this->token->tokenType} {$this->token->accessToken}"
 			],
