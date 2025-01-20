@@ -19,6 +19,11 @@ class Client
 		$this->host = $host;
 	}
 
+	public function setHost(Host $host)
+	{
+		$this->host = $host;
+	}
+
 	public function setUser(User $user)
 	{
 		$this->user = $user;
